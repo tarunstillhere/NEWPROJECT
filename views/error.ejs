@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+</head>
+<body>
+    <% if (message.includes("caller.password")) { %>
+        <h1>Enter the password in correct Format</h1>
+    <% }  else if (message.includes("caller.username")){ %> 
+        <h1>Enter the username in correct Format</h1>
+        <% } 
+      else if (message.includes("caller.email")){ %> 
+        <h1>Enter the email in correct Format</h1>
+        <% } 
+       else if (message.includes("caller.countryCode")){ %> 
+        <h1>Enter the countryCode in correct Format</h1>
+        <% } 
+      else if (message.includes("caller.phoneNumber")){ %> 
+        <h1>Phone Number Should be less than 15 or Numbers only</h1>
+        <% } 
+      else if (message.includes("caller.dob")){ %> 
+        <h1>Age Should be Greater than 13</h1>
+        <% } %>
+</html>

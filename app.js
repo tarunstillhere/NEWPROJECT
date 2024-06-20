@@ -73,7 +73,6 @@ app.post('/submitCall',upload.none(), validateCaller, async (req, res) => {
     let newCaller = new Caller(req.body.caller);
 
     try {
-        let registeredCaller = await Caller.register(req.body.caller, req.body.caller.password);
         // Send OTP
         const otp = uuidv4().split('-')[0]; // Generate a simple OTP
         await OTP.create({ email: req.body.caller.email, otp });
@@ -85,13 +84,15 @@ app.post('/submitCall',upload.none(), validateCaller, async (req, res) => {
             text: `Your verification code is ${otp}`
         };
 
-        transporter.sendMail(mailOptions, (error, info) => {
+        transporter.sendMail(mailOptions,async (error, info) => {
             if (error) {
                 console.log(error);
                 return res.status(500).send("Error sending email: " + error.message);
             }
+            let registeredCaller = await Caller.register(req.body.caller, req.body.caller.password);
             res.redirect("/verifyEmail");
         });
+        console.log("registered Successfully");
     } catch (error) {
         res.status(500).send("Error saving caller: " + error.message);
     }
@@ -188,3 +189,10 @@ module.exports.validateReceiver = (req, res, next) => {
         next();
     }
 };
+
+
+app.use((err,req,res,next)=> {
+    let {statusCode = 500, message= "Something Went Wrong !"} = err;
+    res.status(statusCode).render("error.ejs", {message});
+    // res.status(statusCode).send(message);
+});

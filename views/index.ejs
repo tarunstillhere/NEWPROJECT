@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen</title>
+    <script>
+        function setFormAction(action) {
+            document.getElementById('registerForm').action = action;
+        }
+    </script>
+</head>
+<body>
+    <h1>Hey Listen !</h1>
+    <form id="registerForm" method="get">
+        <button type="button" onclick="setFormAction('/callerForm'); this.form.submit();">Register as a Caller</button>
+        <button type="button" onclick="setFormAction('/receiverForm'); this.form.submit();">Register as a Receiver</button>
+        <button type="button" onclick="setFormAction('/callerLogin'); this.form.submit();">Already Registered ?, Login</button>
+    </form>
+</body>
+</html>

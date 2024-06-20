@@ -1,4 +1,4 @@
-if(process.env.NODE_ENV != "production") {
+if (process.env.NODE_ENV != "production") {
     require("dotenv").config();
 }
 require('dotenv').config();
@@ -8,70 +8,54 @@ const app = express();
 const mongoose = require('mongoose');
 const session = require("express-session");
 const path = require("path");
-const bodyParser = require("body-parser"); // Add this line
+const bodyParser = require("body-parser");
 const Caller = require("./models/caller.js");
 const Receiver = require("./models/receiver.js");
-const {validateCaller} = require("./middleware.js");
-const {validateReceiver} = require("./middleware.js");
+const OTP = require("./models/otp.js");
+const { validateCaller, validateReceiver } = require("./middleware.js");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const multer = require("multer");
-const {storage} = require("./cloudConfig.js");
-const upload = multer({storage});
-const {helper} = require("./middleware.js");
+const { storage } = require("./cloudConfig.js");
+const upload = multer({ storage });
+const transporter = require('./emailConfig');
+const { v4: uuidv4 } = require('uuid');
 let MONGO_URL = "mongodb://127.0.0.1:27017/testing";
 
 main()
-.then(() => {
-    console.log("Connected to DB");
-})
-.catch(err => console.log(err));
+    .then(() => {
+        console.log("Connected to DB");
+    })
+    .catch(err => console.log(err));
 
 async function main() {
-  await mongoose.connect(MONGO_URL);
+    await mongoose.connect(MONGO_URL);
 }
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 const sessionOptions = {
-    secret : "mysupersecretcode",
-    resave : false,
-    saveUninitialized : true,
-    cookie : {
-        expires : Date.now() + 7 * 24 * 60 * 60 *1000,
-        maxAge : 7 * 24 * 60 * 60 *1000,
-        httpOnly : true,
+    secret: "mysupersecretcode",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
     },
 };
 
 app.use(session(sessionOptions));
 
-app.use(bodyParser.urlencoded({ extended: true })); // Add this line to parse form data
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use(passport.initialize());
 app.use(passport.session());
 passport.use(new LocalStrategy(Caller.authenticate()));
 
 passport.serializeUser(Caller.serializeUser());
 passport.deserializeUser(Caller.deserializeUser());
-
-// app.get("/demouser", async (req,res) => {
-//     let fakeUser = ({
-//         username : "delta-student",
-//         email : "john@gmail.com",
-//         password : "fsdfad",
-//         phoneNumber : "0989999090",
-//         gender : "Male",
-//         dob : "2006/02/20",
-//         address : "fasdaasfadsas",
-//         imgURL : "fsfasdffs",
-//         language : "English",
-//         status : "offline"
-//     });
-
-//     let registeredCaller = await Caller.register(fakeUser, "helloWorld");
-//     console.log(registeredCaller);
-// });
 
 app.get("/listen", async (req, res) => {
     res.render("index.ejs");
@@ -85,24 +69,57 @@ app.get("/receiverForm", (req, res) => {
     res.render("receiver.ejs");
 });
 
-app.post('/submitCall',validateCaller, async (req, res) => {  // upload.single("caller[imgURL]")
-    // req.body.caller.phoneNumber = req.body.caller.countryCode+req.body.caller.phoneNumber;
+app.post('/submitCall',upload.none(), validateCaller, async (req, res) => {
     let newCaller = new Caller(req.body.caller);
-    // console.log(newCaller);
+
     try {
         let registeredCaller = await Caller.register(req.body.caller, req.body.caller.password);
-        res.redirect("/home");
+        // Send OTP
+        const otp = uuidv4().split('-')[0]; // Generate a simple OTP
+        await OTP.create({ email: req.body.caller.email, otp });
+
+        const mailOptions = {
+            from: 'tarunchauhan01221@gmail.com',
+            to: req.body.caller.email,
+            subject: 'Email Verification Code',
+            text: `Your verification code is ${otp}`
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).send("Error sending email: " + error.message);
+            }
+            res.redirect("/verifyEmail");
+        });
     } catch (error) {
-        // console.log(error.message)
         res.status(500).send("Error saving caller: " + error.message);
     }
-
 });
 
+app.get("/verifyEmail", (req, res) => {
+    res.render("verifyEmail.ejs");
+});
 
+app.post("/verifyEmail", async (req, res) => {
+    const { email, otp } = req.body;
+    const otpRecord = await OTP.findOne({ email, otp });
 
-app.post("/submitRec",validateReceiver, async (req,res) => {
+    if (otpRecord) {
+        // OTP is valid
+        await OTP.deleteOne({ email, otp }); // Remove the used OTP
+        res.send("Email verified successfully!");
+    } else {
+        // OTP is invalid
+        res.status(400).send("Invalid OTP");
+    }
+});
 
+app.get("/receiverForm", (req, res) => {
+    res.render("receiver.ejs");
+});
+
+app.post("/submitRec", validateReceiver, async (req, res) => {
     let newReceiver = new Receiver(req.body.receiver);
     console.log(newReceiver);
 
@@ -110,45 +127,64 @@ app.post("/submitRec",validateReceiver, async (req,res) => {
         let registeredReceiver = await Receiver.register(req.body.receiver, req.body.receiver.password);
         res.send("Successfully Connected");
     } catch (error) {
-        
         res.status(500).send("Error saving receiver: " + error.message);
     }
-})
+});
 
-
-
-app.get("/callerLogin", (req,res) => {
+app.get("/callerLogin", (req, res) => {
     res.render("callerLogin.ejs");
 });
 
-app.get("/receiverLogin", (req,res) => {
+app.get("/receiverLogin", (req, res) => {
     res.render("receiverLogin.ejs");
 });
 
-
-app.post("/callerLogin",  passport.authenticate("local", {
-    failureRedirect : "/",
-    failureFlash : false,
-   }), (req,res) =>{
+app.post("/callerLogin", passport.authenticate("local", {
+    failureRedirect: "/",
+    failureFlash: false,
+}), (req, res) => {
     res.redirect("/home");
 });
 
-app.post("/receiverLogin",  passport.authenticate("local", {
-    failureRedirect : "/",
-    failureFlash : false,
-   }), (req,res) =>{
+app.post("/receiverLogin", passport.authenticate("local", {
+    failureRedirect: "/",
+    failureFlash: false,
+}), (req, res) => {
     res.redirect("/home");
 });
 
-app.get("/", (req,res) => {
+app.get("/", (req, res) => {
     res.send("Wrong Password");
 });
 
-app.get("/home", (req,res) => {
+app.get("/home", (req, res) => {
     res.send("Welcome to Listen.com");
 });
-
 
 app.listen(8080, () => {
     console.log("app is listening to port 8080");
 });
+
+const { callerSchema, receiverSchema } = require("./schemaValidation");
+
+module.exports.validateCaller = (req, res, next) => {
+    let { error } = callerSchema.validate(req.body);
+    if (error) {
+        let errMsg = error.details.map((el) => el.message).join(",");
+        console.log(errMsg);
+        return res.status(400).send(errMsg); // Send a response with the error message
+    } else {
+        next();
+    }
+};
+
+module.exports.validateReceiver = (req, res, next) => {
+    let { error } = receiverSchema.validate(req.body);
+    if (error) {
+        let errMsg = error.details.map((el) => el.message).join(",");
+        console.log(errMsg);
+        return res.status(400).send(errMsg); // Send a response with the error message
+    } else {
+        next();
+    }
+};

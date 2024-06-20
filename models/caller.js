@@ -13,6 +13,7 @@ const callerSchema = new Schema({
     required: true,
     unique: true,
   },
+  verified: { type: Boolean, default: false },
   countryCode : {
     type : String,
     required : true

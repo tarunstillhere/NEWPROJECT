@@ -57,6 +57,12 @@ passport.use(new LocalStrategy(Caller.authenticate()));
 passport.serializeUser(Caller.serializeUser());
 passport.deserializeUser(Caller.deserializeUser());
 
+let temp = {};
+
+const storeData = (req,res,next) => {
+   temp = req.body;
+    next();
+}
 app.get("/listen", async (req, res) => {
     res.render("index.ejs");
 });
@@ -69,7 +75,7 @@ app.get("/receiverForm", (req, res) => {
     res.render("receiver.ejs");
 });
 
-app.post('/submitCall',upload.none(), validateCaller, async (req, res) => {
+app.post('/submitCall',upload.none(), validateCaller,storeData, async (req, res) => {
     let newCaller = new Caller(req.body.caller);
 
     try {
@@ -89,7 +95,7 @@ app.post('/submitCall',upload.none(), validateCaller, async (req, res) => {
                 console.log(error);
                 return res.status(500).send("Error sending email: " + error.message);
             }
-            let registeredCaller = await Caller.register(req.body.caller, req.body.caller.password);
+            
             res.redirect("/verifyEmail");
         });
         console.log("registered Successfully");
@@ -109,6 +115,10 @@ app.post("/verifyEmail", async (req, res) => {
     if (otpRecord) {
         // OTP is valid
         await OTP.deleteOne({ email, otp }); // Remove the used OTP
+        let user = temp;
+        temp = {};
+        let registeredCaller = await Caller.register(user.caller, user.caller.password);
+        console.log(temp);
         res.send("Email verified successfully!");
     } else {
         // OTP is invalid

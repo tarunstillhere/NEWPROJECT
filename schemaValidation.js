@@ -23,7 +23,7 @@ module.exports.callerSchema = Joi.object({
 });
 
 module.exports.receiverSchema = Joi.object({
-    receiver :Joi.object({
+    receiver : Joi.object({
         username : Joi.string().required().min(3).max(30),
         email: Joi.string()
         .email({ minDomainSegments: 2}),

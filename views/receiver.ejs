@@ -8,14 +8,14 @@
 <body>
     <h1>Create New Receiver</h1>
     <form action="/submitRec" method="POST" enctype="multipart/form-data">
-        <label for="username">Name:</label>
-        <input type="text" id="name" name="receiver[username]" required><br>
+        <label for="username">Username:</label>
+        <input type="text" id="username" placeholder="small letters only" name="receiver[username]" required><br>
 
             <label for="email">Email:</label>
-            <input type="email" id="email" name="receiver[email]" required><br>
+            <input type="email" id="email" placeholder="for eg - joe@gmail.com" name="receiver[email]" required><br>
 
         <label for="password">Password:</label>
-        <input type="password" id="password" name="receiver[password]" required><br>
+        <input type="password" id="password" placeholder="Name@123" name="receiver[password]" required><br>
 
         <label for="country_code">Country Code:</label>
         <select name="receiver[countryCode]" id="country_code">
@@ -267,7 +267,7 @@
 
         <label for="phoneNumber">Phone Number:</label>
         
-        <input type="text" id="phoneNumber" name="receiver[phoneNumber]" required><br>
+        <input type="text" id="phoneNumber" placeholder="Valid Phone Number" name="receiver[phoneNumber]" required><br>
 
         <label for="gender">Gender:</label>
         <select id="gender" name="receiver[gender]">
@@ -302,5 +302,14 @@
 
         <button type="submit">Create Receiver</button>
     </form>
+    <script>
+        let inp = document.getElementById("username");
+        inp.addEventListener("input", (e) => {
+            if (inp.value.charAt(inp.value.length -1) >= 'A' && inp.value.charAt(inp.value.length -1) <= 'Z'){
+                inp.value = inp.value.toLowerCase();
+            }
+            
+        })
+    </script>
 </body>
 </html>

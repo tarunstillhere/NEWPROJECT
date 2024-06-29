@@ -23,4 +23,22 @@
       else if (message.includes("caller.dob")){ %> 
         <h1>Age Should be Greater than 13</h1>
         <% } %>
+
+    <% if (message.includes("receiver.password")) { %>
+        <h1>Enter the password in correct Format</h1>
+    <% }  else if (message.includes("receiver.username")){ %> 
+        <h1>Enter the username in correct Format</h1>
+        <% } 
+      else if (message.includes("receiver.email")){ %> 
+        <h1>Enter the email in correct Format</h1>
+        <% } 
+       else if (message.includes("receiver.countryCode")){ %> 
+        <h1>Enter the countryCode in correct Format</h1>
+        <% } 
+      else if (message.includes("receiver.phoneNumber")){ %> 
+        <h1>Phone Number Should be less than 15 or Numbers only</h1>
+        <% } 
+      else if (message.includes("receiver.dob")){ %> 
+        <h1>Age Should be Greater than 13</h1>
+        <% } %>
 </html>

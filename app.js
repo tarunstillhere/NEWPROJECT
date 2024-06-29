@@ -75,10 +75,6 @@ app.get("/callerForm", (req, res) => {
     res.render("caller.ejs");
 });
 
-app.get("/receiverForm", (req, res) => {
-    res.render("receiver.ejs");
-});
-
 app.post('/submitCall',upload.none(), validateCaller,storeData, async (req, res) => {
     let newCaller = new Caller(req.body.caller);
 
@@ -129,7 +125,64 @@ app.post("/verifyEmail", async (req, res) => {
     }
 });
 
+
+app.get("/receiverForm", (req, res) => {
+    res.render("receiver.ejs");
+});
+
+app.post('/submitRec',upload.none(), validateReceiver,storeData, async (req, res) => {
+    let newReceiver = new Receiver(req.body.receiver);
+
+    try {
+        // Send OTP
+        const otp = uuidv4().split('-')[0]; // Generate a simple OTP
+        await OTP.create({ email: req.body.receiver.email, otp });
+
+        const mailOptions = {
+            from: 'tarunchauhan01221@gmail.com',
+            to: req.body.receiver.email,
+            subject: 'Email Verification Code',
+            text: `Your verification code is ${otp}`
+        };
+
+        transporter.sendMail(mailOptions,async (error, info) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).send("Error sending email: " + error.message);
+            }
+            
+            res.redirect("/verifyEmail");
+        });
+        console.log("registered Successfully");
+    } catch (error) {
+        res.status(500).send("Error saving receiver: " + error.message);
+    }
+});
+
+app.get("/verifyEmail", (req, res) => {
+    res.render("verifyEmail.ejs", { email: temp.receiver.email });
+});
+
+app.post("/verifyEmail", async (req, res) => {
+    const { email, otp } = req.body;
+    const otpRecord = await OTP.findOne({ email, otp });
+
+    if (otpRecord && moment().isBefore(moment(otpRecord.createdAt).add(5, 'minutes'))) {
+        // OTP is valid and not expired
+        await OTP.deleteOne({ email, otp }); // Remove the used OTP
+        let user = temp;
+        temp = {};
+        let registeredReceiver = await Caller.register(user.receiver, user.receiver.password);
+        res.send("Email verified successfully!");
+    } else {
+        // OTP is invalid or expired
+        res.status(400).send("Invalid or expired OTP");
+    }
+});
+
+
 // Add a new route for resending OTP
+
 app.post("/resendOtp", async (req, res) => {
     const { email } = req.body;
     try {
@@ -163,22 +216,6 @@ app.post("/resendOtp", async (req, res) => {
     }
 });
 
-
-app.get("/receiverForm", (req, res) => {
-    res.render("receiver.ejs");
-});
-
-app.post("/submitRec", validateReceiver, async (req, res) => {
-    let newReceiver = new Receiver(req.body.receiver);
-    console.log(newReceiver);
-
-    try {
-        let registeredReceiver = await Receiver.register(req.body.receiver, req.body.receiver.password);
-        res.send("Successfully Connected");
-    } catch (error) {
-        res.status(500).send("Error saving receiver: " + error.message);
-    }
-});
 
 app.get("/callerLogin", (req, res) => {
     res.render("callerLogin.ejs");

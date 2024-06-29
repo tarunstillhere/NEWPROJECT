@@ -12,7 +12,7 @@ const bodyParser = require("body-parser");
 const Caller = require("./models/caller.js");
 const Receiver = require("./models/receiver.js");
 const OTP = require("./models/otp.js");
-const { validateCaller, validateReceiver } = require("./middleware.js");
+// const { validateCaller, validateReceiver } = require("./middleware.js");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const multer = require("multer");
@@ -34,6 +34,10 @@ async function main() {
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+
+const { validateCaller, validateReceiver } = require("./middleware.js");
+// Add moment.js for handling time
+const moment = require("moment");
 
 const sessionOptions = {
     secret: "mysupersecretcode",
@@ -105,26 +109,60 @@ app.post('/submitCall',upload.none(), validateCaller,storeData, async (req, res)
 });
 
 app.get("/verifyEmail", (req, res) => {
-    res.render("verifyEmail.ejs");
+    res.render("verifyEmail.ejs", { email: temp.caller.email });
 });
 
 app.post("/verifyEmail", async (req, res) => {
     const { email, otp } = req.body;
     const otpRecord = await OTP.findOne({ email, otp });
 
-    if (otpRecord) {
-        // OTP is valid
+    if (otpRecord && moment().isBefore(moment(otpRecord.createdAt).add(5, 'minutes'))) {
+        // OTP is valid and not expired
         await OTP.deleteOne({ email, otp }); // Remove the used OTP
         let user = temp;
         temp = {};
         let registeredCaller = await Caller.register(user.caller, user.caller.password);
-        console.log(temp);
         res.send("Email verified successfully!");
     } else {
-        // OTP is invalid
-        res.status(400).send("Invalid OTP");
+        // OTP is invalid or expired
+        res.status(400).send("Invalid or expired OTP");
     }
 });
+
+// Add a new route for resending OTP
+app.post("/resendOtp", async (req, res) => {
+    const { email } = req.body;
+    try {
+        // Check if the OTP was already sent within the last 30 seconds
+        const recentOtp = await OTP.findOne({ email }).sort({ createdAt: -1 });
+        if (recentOtp && moment().isBefore(moment(recentOtp.createdAt).add(30, 'seconds'))) {
+            return res.status(400).send("Please wait before requesting another OTP.");
+        }
+
+        // Generate and send a new OTP
+        const otp = uuidv4().split('-')[0]; // Generate a simple OTP
+        await OTP.create({ email, otp });
+
+        const mailOptions = {
+            from: 'tarunchauhan01221@gmail.com',
+            to: email,
+            subject: 'Email Verification Code',
+            text: `Your verification code is ${otp}`
+        };
+
+        transporter.sendMail(mailOptions, async (error, info) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).send("Error sending email: " + error.message);
+            }
+
+            res.status(200).send("OTP resent successfully");
+        });
+    } catch (error) {
+        res.status(500).send("Error resending OTP: " + error.message);
+    }
+});
+
 
 app.get("/receiverForm", (req, res) => {
     res.render("receiver.ejs");

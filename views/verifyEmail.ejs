@@ -1,17 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Email Verification</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email</title>
+    <script>
+        function startTimer(duration, display) {
+            var timer = duration, minutes, seconds;
+            setInterval(function () {
+                minutes = parseInt(timer / 60, 10);
+                seconds = parseInt(timer % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                display.textContent = minutes + ":" + seconds;
+
+                if (--timer < 0) {
+                    timer = 0;
+                    document.getElementById("resendOtpBtn").disabled = false;
+                }
+            }, 1000);
+        }
+
+        window.onload = function () {
+            var countdown = 30; // 30 seconds countdown
+            var display = document.querySelector('#time');
+            startTimer(countdown, display);
+        };
+
+        function resendOtp() {
+            document.getElementById("resendOtpBtn").disabled = true;
+            var email = document.getElementById("email").value;
+            fetch('/resendOtp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email })
+            })
+            .then(response => response.text())
+            .then(result => {
+                alert(result);
+                var countdown = 30; // Reset the countdown
+                var display = document.querySelector('#time');
+                startTimer(countdown, display);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("Error resending OTP.");
+            });
+        }
+    </script>
 </head>
 <body>
+    <h1>Verify Your Email</h1>
     <form action="/verifyEmail" method="POST">
-        <label for="email">Email:</label>
-        <input type="email" name="email" required>
-        <br>
-        <label for="otp">OTP:</label>
-        <input type="text" name="otp" required>
-        <br>
+        <input type="hidden" id="email" name="email" value="<%= email %>">
+        <input type="text" name="otp" placeholder="Enter OTP" required>
         <button type="submit">Verify</button>
     </form>
+    <button id="resendOtpBtn" onclick="resendOtp()" disabled>Resend OTP</button>
+    <p>Resend available in <span id="time">00:30</span> seconds</p>
 </body>
 </html>

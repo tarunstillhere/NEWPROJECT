@@ -13,6 +13,9 @@ const receiverSchema = new Schema({
     required: true,
     unique: true,
   },
+  password: String,
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
   countryCode : {
     type : String,
     required : true

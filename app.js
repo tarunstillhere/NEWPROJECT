@@ -20,6 +20,8 @@ const { storage } = require("./cloudConfig.js");
 const upload = multer({ storage });
 const transporter = require('./emailConfig');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+
 let MONGO_URL = "mongodb://127.0.0.1:27017/testing";
 
 main()
@@ -237,6 +239,83 @@ app.post("/receiverLogin", passport.authenticate("local", {
     failureFlash: false,
 }), (req, res) => {
     res.redirect("/home");
+});
+
+// Route to render the password reset request form
+app.get('/forgotPassword', (req, res) => {
+    res.render('forgotPassword.ejs');
+});
+
+// Route to handle the password reset request
+app.post('/forgotPassword', async (req, res) => {
+    const { email } = req.body;
+    const user = await Caller.findOne({ email }) || await Receiver.findOne({ email });
+
+    if (!user) {
+        return res.status(400).send("No account with that email found.");
+    }
+
+    // Generate a token
+    const token = crypto.randomBytes(20).toString('hex');
+
+    // Set token and expiration on the user model
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    // Send the email
+    const mailOptions = {
+        from: 'tarunchauhan01221@gmail.com',
+        to: user.email,
+        subject: 'Password Reset',
+        text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n
+               Please click on the following link, or paste this into your browser to complete the process within one hour of receiving it:\n\n
+               http://${req.headers.host}/reset/${token}\n\n
+               If you did not request this, please ignore this email and your password will remain unchanged.\n`
+    };
+
+    transporter.sendMail(mailOptions, (err, response) => {
+        if (err) {
+            console.error('There was an error: ', err);
+        } else {
+            res.status(200).send('Recovery email sent');
+        }
+    });
+});
+
+// Route to render the password reset form
+app.get('/reset/:token', async (req, res) => {
+    const user = await Caller.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }) ||
+                 await Receiver.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } });
+
+    if (!user) {
+        return res.status(400).send("Password reset token is invalid or has expired.");
+    }
+
+    res.render('resetPassword.ejs', { token: req.params.token });
+});
+
+// Route to handle the password reset form submission
+app.post('/reset/:token', async (req, res) => {
+    const user = await Caller.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }) ||
+                 await Receiver.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } });
+
+    if (!user) {
+        return res.status(400).send("Password reset token is invalid or has expired.");
+    }
+
+    user.setPassword(req.body.password, async (err) => {
+        if (err) {
+            return res.status(500).send("Error resetting password.");
+        }
+
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+
+        await user.save();
+
+        res.status(200).send("Password has been reset successfully.");
+    });
 });
 
 app.get("/", (req, res) => {
